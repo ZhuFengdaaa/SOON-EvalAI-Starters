@@ -1,1 +1,34 @@
-<p>"Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum."</p>
+<p>
+Five evaluation metrics are provided as described below. The primary evaluation metrics of interest are the navigation performance described by Success rate weighted by normalized inverse Path Length (SPL) 
+and the object finding performance described by Success rate of Finding weighted by Path Length.
+</p>
+
+<p>
+    <b>Trajectory Length (length):</b> The agent's mean trajectory length in metres. This figure provides some context regarding the amount of exploring that an agent is undertaking (relative to the mean trajectory length of the 
+shortest path oracle, for example), and is used in the calculation of SPL.
+</p>
+
+<p>
+    <b>Navigation Error (error):</b> The agent's mean navigation error in metres. We define navigation error as the shortest path distance in the simulator's navigation graph between the agent’s final position 
+    (i.e., disregarding heading and elevation) and the goal location. The agent is expected to identify the goal location and stop as close as possible to it. We do not evaluate the agent’s entire trajectory as many instructions describe the location of the goal without specifying a particular path that must be taken to reach it.
+</p>
+
+<p>
+    <b>Oracle Success Rate (oracle success):</b> The agent's mean success rate in the presence of an oracle stopping rule, i.e. if the agent magically stopped at the closest point to the goal on its trajectory. 
+    We consider stopping to be a fundamental aspect of completing the navigation task, demonstrating understanding, but also freeing the agent to potentially undertake further tasks at the goal. Nevertheless, we include this evaluation to disentangle the problem of recognizing the goal location from the other aspects of the task.
+</p>
+
+<p>
+    <b>Success Rate (success):</b> The agent's mean success rate in terms of reaching the goal location. We consider an episode to be a success if the agent's navigation error is less than 3m. 
+    This threshold allows for a reasonable margin of error in the context of an imprecise natural language navigation instruction, yet it is comfortably below the minimum starting error in the R2R dataset (which is 5m).
+</p>
+
+<p>
+    <b>Success rate weighted by (normalized inverse) Path Length (SPL):</b> It is generally possible to improve the agent's Success Rate at reaching the goal by exploring more of the environment before
+     committing to a decision. However, in a robotics context, longer trajectories have costs (battery, wear, delays for the user, etc). Further, humans can solve the VLN task with very short trajectories. Therefore, SPL trades-off Success Rate against Trajectory Length.
+</p>
+
+
+<p>
+    <b>Success rate of Finding weighted by Path Length (SFPL):</b> This metric is evaluated by the success rate indicating whether the predicted direction is located in the bounding box. We combine the SPL and localization success to propose a success rate of finding weighted by path length (SFPL). 
+</p>
