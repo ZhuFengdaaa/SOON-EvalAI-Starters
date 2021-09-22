@@ -32,7 +32,9 @@ def install_local_package(folder_name):
     ]
 )
 
-# install("shapely==1.7.1")
+install("shapely==1.7.1")
+# install("json==2.0.9")
+# install("math")
 # install("requests==2.25.1")
 
 # install_local_package("package_folder_name")

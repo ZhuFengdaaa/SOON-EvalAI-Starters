@@ -65,6 +65,7 @@ class Evaluation(object):
         self.distances = {}
         for scan, G in self.graphs.items(): # compute all shortest paths
             self.distances[scan] = dict(nx.all_pairs_dijkstra_path_length(G))
+        import ipdb; ipdb.set_trace()
 
     def _get_nearest(self, scan, goal_id, path):
         near_id = path[0][0]

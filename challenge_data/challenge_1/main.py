@@ -152,13 +152,23 @@ class Evaluation(object):
         score_summary['point_det_errors'] = np.average(self.scores['point_det_errors'])
         score_summary['goal_progress'] = np.average(self.scores['goal_progress'])
 
+        eps = 1e-9
         det_num_successes = len([i for i in self.scores['det_success_num'] if i > 0.])
-        score_summary['det_success_rate'] = float(det_num_successes) / float(len(self.scores['det_success_num']))
+        if float(det_num_successes) < eps:
+            score_summary['det_success_rate'] = 0.0
+        else:
+            score_summary['det_success_rate'] = float(det_num_successes) / float(len(self.scores['det_success_num']))
         num_successes = len([i for i in self.scores['nav_errors'] if i < self.error_margin])
-        score_summary['nav_success_rate'] = float(num_successes)/float(len(self.scores['nav_errors']))
+        if float(num_successes) < eps:
+            score_summary['nav_success_rate'] = 0.0
+        else:
+            score_summary['nav_success_rate'] = float(num_successes)/float(len(self.scores['nav_errors']))
 
         oracle_successes = len([i for i in self.scores['oracle_errors'] if i < self.error_margin])
-        score_summary['oracle_rate'] = float(oracle_successes)/float(len(self.scores['oracle_errors']))
+        if float(oracle_successes) < eps:
+            score_summary['oracle_rate'] = 0.0
+        else:
+            score_summary['oracle_rate'] = float(oracle_successes)/float(len(self.scores['oracle_errors']))
 
         spl = [float(error < self.error_margin) * l / max(l, p, 0.01)
             for error, p, l in
@@ -208,51 +218,42 @@ def evaluate(test_annotation_file, user_submission_file, phase_codename, **kwarg
     """
     output = {}
 
-    print(test_annotation_file, user_submission_file)
-
     print(f"load {test_annotation_file} {user_submission_file}")
 
-    # print(f"test_annotation_file size: {Path(test_annotation_file).stat().st_size}")
-    # print(f"user_submission_file size: {Path(user_submission_file).stat().st_size}")
+    print(f"test_annotation_file size: {Path(test_annotation_file).stat().st_size}")
+    print(f"user_submission_file size: {Path(user_submission_file).stat().st_size}")
 
-    f = open(test_annotation_file,'r')
-    f_str = f.read()
-    anno = json.loads(f_str)
+    with open(test_annotation_file,'r') as f:
+        f_str = f.read()
+        anno = json.loads(f_str)
 
-    # try:
-    #     with open(test_annotation_file,'r') as f0:
-    #         anno = json.load(f0)
-    # except Exception as e:
-    #     print(str(e))
-    #     print(f"read test_annotation_file {test_annotation_file} fail")
+    with open(user_submission_file,'r') as f:
+        f_str = f.read()
+        submit_data = json.loads(f_str)
 
-    # try:
-    #     with open(user_submission_file,'r') as f0:
-    #         submit_data = json.load(f0)
-    # except Exception as e:
-    #     print(str(e))
-    #     print(f"read user_submission_file {user_submission_file} fail")
+    print("load finish")
 
-    # print("Evaluating for %s Phase" % phase_codename)
-    # ev = Evaluation(anno)
-    # print("init finished")
-    # score_summary = ev.score(submit_data)
+    print("Evaluating for %s Phase" % phase_codename)
+    ev = Evaluation(anno)
+    print("init finished")
+    score_summary = ev.score(submit_data)
+    print("score finished")
 
-    # output["result"] = [
-    #     {
-    #         "%s_split" % phase_codename: {
-    #             "length": round(score_summary['lengths'],2),
-    #             "SR": round(score_summary['nav_success_rate'],2),
-    #             "OSR": round(score_summary['oracle_rate'],2),
-    #             "SPL": round(score_summary['spl'],2),
-    #             "SFPL": round(score_summary['success_rate'],2)
-    #         }
-    #     },
-    # ]
+    output["result"] = [
+        {
+            "%s_split" % phase_codename: {
+                "length": round(score_summary['lengths'],2),
+                "SR": round(score_summary['nav_success_rate'],2),
+                "OSR": round(score_summary['oracle_rate'],2),
+                "SPL": round(score_summary['spl'],2),
+                "SFPL": round(score_summary['success_rate'],2)
+            }
+        },
+    ]
     
-    # # To display the results in the result file
-    # output["submission_result"] = output["result"][0]
-    output = {'result': [{'test_split': {'length': 17.79, 'SR': 0.08, 'OSR': 0.11, 'SPL': 0.07, 'SFPL': 0.01}}], 'submission_result': {'test_split': {'length': 17.79, 'SR': 0.08, 'OSR': 0.11, 'SPL': 0.07, 'SFPL': 0.01}}}
+    # To display the results in the result file
+    output["submission_result"] = output["result"][0]
+    # output = {'result': [{'test_split': {'length': 17.79, 'SR': 0.08, 'OSR': 0.11, 'SPL': 0.07, 'SFPL': 0.01}}], 'submission_result': {'test_split': {'length': 17.79, 'SR': 0.08, 'OSR': 0.11, 'SPL': 0.07, 'SFPL': 0.01}}}
     print(output)
     print("Completed evaluation for %s" % phase_codename)
     return output
