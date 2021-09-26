@@ -1,6 +1,6 @@
 # If you are not sure what all these fields mean, please refer our documentation here:
 # https://evalai.readthedocs.io/en/latest/configuration.html
-title: Scenario Oriented Object Navigation (SOON3)
+title: Scenario Oriented Object Navigation (SOON)
 short_description: Scenario Oriented Object Navigation (SOON) is an embodied object navigation task, where an agent is required to navigate from an arbitrary position in a 3D embodied environment to localize a target following a scene description. 
 # description: The ability to navigate like a human towards a language-guided target from anywhere in a 3D embodied environment is one of the "holy grail" goals of intelligent robots. We introduce a Scenario Oriented Object Navigation (SOON) task, where an agent is required to navigate from an arbitrary position in a 3D embodied environment to localize a target following a scene description. A description includes object attribute, object relationship, region description, and nearby region description.
 description: templates/description.html
