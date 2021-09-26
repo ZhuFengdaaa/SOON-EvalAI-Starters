@@ -51,21 +51,19 @@ class Evaluation(object):
         self.scans = []
 
         for item in anno["gt"]:
-            scan = item['bboxes'][0]['scan']
+            scan = item['scan']
             if scan not in self.scans:
                 self.scans.append(scan)
-            self.gt[str(item['path_id'])] = copy.deepcopy(item)
-            new_instrs = []
-            instructions = copy.deepcopy(item['instructions'])
-            for i in range(len(instructions)):
-                new_instrs.append(instructions[i][4])
-            self.gt[str(item['path_id'])]['instructions'] = new_instrs
-        
+            self.gt[item['instr_id']] = copy.deepcopy(item)
+            # new_instrs = []
+            # instructions = copy.deepcopy(item['instructions'])
+            # for i in range(len(instructions)):
+            #     new_instrs.append(instructions[i][4])
+            # self.gt[str(item['path_id'])]['instructions'] = new_instrs
         self.graphs = load_nav_graphs(self.scans, self.connectivity)
         self.distances = {}
         for scan, G in self.graphs.items(): # compute all shortest paths
             self.distances[scan] = dict(nx.all_pairs_dijkstra_path_length(G))
-        import ipdb; ipdb.set_trace()
 
     def _get_nearest(self, scan, goal_id, path):
         near_id = path[0][0]
@@ -83,10 +81,14 @@ class Evaluation(object):
             The path contains [view_id, angle, vofv] '''
         heading = np.array(heading)
         elevation = np.array(elevation)
-        gt = self.gt[instr_id.split('_')[-2]]
-        start = gt['path'][0]
+        gt = self.gt[instr_id]
+        # start = gt['path'][0]
+        starts = [gt_path[0] for gt_path in gt['path']]
+        path_idx = starts.index(path[0][0])
+        gt_path = gt['path'][path_idx]
+        start = starts[path_idx]
         assert start == path[0][0], 'Result trajectories should include the start position'
-        goal = gt['path'][-1]
+        goal = gt_path[-1]
         final_position = path[-1][0]    # the first of [view_id, angle, vofv]
         nearest_position = self._get_nearest(gt['scan'], goal, path)
 
@@ -95,18 +97,21 @@ class Evaluation(object):
         success = False
         for bbox in gt['bboxes']:
             if bbox['image_id'] == final_position:
+            # if True:
                 goal = final_position
-                gt_heading = bbox['heading']
-                gt_elevation = bbox['elevation']
+                # gt_heading = bbox['heading']
+                gt_heading = bbox['target']["center"]["heading"]
+                gt_elevation = bbox['target']["center"]["elevation"]
+                # gt_elevation = bbox['elevation']
+                gt_point = Point(gt_heading, gt_elevation)
                 # gt_point = Point(gt_heading, gt_elevation)
                 gt_poly = Polygon([(bbox['target']['left_top']['heading'], bbox['target']['left_top']['elevation']),
                                     (bbox['target']['right_top']['heading'], bbox['target']['right_top']['elevation']),
                                     (bbox['target']['right_bottom']['heading'], bbox['target']['right_bottom']['elevation']),
                                     (bbox['target']['left_bottom']['heading'], bbox['target']['left_bottom']['elevation'])])
-
                 self.scores['heading_errors'].append(math.fabs((gt_heading - heading)))
                 self.scores['elevation_errors'].append(math.fabs((gt_elevation - elevation)))
-                if gt_poly.contains(pre_point):
+                if gt_poly.contains(gt_point):
                     # point_inds = (gt_poly.contains_points(pre_point) > 0).nonzero()[0]
                     # if point_inds.shape[0] > 0:
                     self.scores['det_success_num'].append(1.)
@@ -138,9 +143,10 @@ class Evaluation(object):
         ''' Evaluate each agent trajectory based on how close it got to the goal location '''
         self.scores = defaultdict(list)
         for item in results:
-            self._score_item(item['instr_id'], item['trajectory']['path'],
-                                item['trajectory']['obj_heading'],
-                                item['trajectory']['obj_elevation'])
+            for trajectory in item['trajectory']:
+                self._score_item(item['instr_id'], trajectory['path'],
+                                trajectory['obj_heading'],
+                                trajectory['obj_elevation'])
 
         score_summary = {
             'nav_error': np.average(self.scores['nav_errors']),
@@ -153,13 +159,23 @@ class Evaluation(object):
         score_summary['point_det_errors'] = np.average(self.scores['point_det_errors'])
         score_summary['goal_progress'] = np.average(self.scores['goal_progress'])
 
+        eps = 1e-9
         det_num_successes = len([i for i in self.scores['det_success_num'] if i > 0.])
-        score_summary['det_success_rate'] = float(det_num_successes) / float(len(self.scores['det_success_num']))
+        if float(det_num_successes) < eps:
+            score_summary['det_success_rate'] = 0.0
+        else:
+            score_summary['det_success_rate'] = float(det_num_successes) / float(len(self.scores['det_success_num']))
         num_successes = len([i for i in self.scores['nav_errors'] if i < self.error_margin])
-        score_summary['nav_success_rate'] = float(num_successes)/float(len(self.scores['nav_errors']))
+        if float(num_successes) < eps:
+            score_summary['nav_success_rate'] = 0.0
+        else:
+            score_summary['nav_success_rate'] = float(num_successes)/float(len(self.scores['nav_errors']))
 
         oracle_successes = len([i for i in self.scores['oracle_errors'] if i < self.error_margin])
-        score_summary['oracle_rate'] = float(oracle_successes)/float(len(self.scores['oracle_errors']))
+        if float(oracle_successes) < eps:
+            score_summary['oracle_rate'] = 0.0
+        else:
+            score_summary['oracle_rate'] = float(oracle_successes)/float(len(self.scores['oracle_errors']))
 
         spl = [float(error < self.error_margin) * l / max(l, p, 0.01)
             for error, p, l in
@@ -221,23 +237,21 @@ def evaluate(test_annotation_file, user_submission_file, phase_codename, **kwarg
     with open(user_submission_file,'r') as f:
         f_str = f.read()
         submit_data = json.loads(f_str)
-
+    
     print("load finish")
 
     print("Evaluating for %s Phase" % phase_codename)
     ev = Evaluation(anno)
-    print("init finished")
     score_summary = ev.score(submit_data)
-    print("score finished")
 
     output["result"] = [
         {
             "%s_split" % phase_codename: {
-                "length": round(score_summary['lengths'],2),
-                "SR": round(score_summary['nav_success_rate'],2),
-                "OSR": round(score_summary['oracle_rate'],2),
-                "SPL": round(score_summary['spl'],2),
-                "SFPL": round(score_summary['success_rate'],2)
+                "length": round(score_summary['lengths'],4),
+                "SR": round(score_summary['nav_success_rate'],4),
+                "OSR": round(score_summary['oracle_rate'],4),
+                "SPL": round(score_summary['spl'],4),
+                "SFPL": round(score_summary['success_rate'],4)
             }
         },
     ]
