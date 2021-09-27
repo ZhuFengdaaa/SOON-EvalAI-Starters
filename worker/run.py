@@ -15,10 +15,10 @@ def run():
 
     challenge_id = 1
     challenge_phase = "test"  # Add the challenge phase codename to be tested
-    annotation_file_path = "{}/annotations/test.json".format(
+    annotation_file_path = "{}/annotations/val_unseen_house.json".format(
         current_working_directory
     )  # Add the test annotation file path
-    user_submission_file_path = "{}/annotations/submit_test.json".format(
+    user_submission_file_path = "{}/annotations/submit_val_unseen_house.json".format(
         current_working_directory
     )  # Add the sample submission file path
 

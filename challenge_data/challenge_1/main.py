@@ -54,6 +54,19 @@ class Evaluation(object):
             scan = item['scan']
             if scan not in self.scans:
                 self.scans.append(scan)
+            for bbox in item["bboxes"]:
+                bbox['old_heading'] = bbox['heading'] / (2 * math.pi)
+                bbox['old_elevation'] = (bbox['elevation'] + math.pi) / (2 * math.pi)
+                bbox['heading'] = bbox['target']['center']['heading'] / (2 * math.pi)
+                bbox['elevation'] = (bbox['target']['center']['elevation'] + math.pi) / (2 * math.pi)
+                bbox['target']['left_top']['heading'] = bbox['target']['left_top']['heading'] / (2 * math.pi)
+                bbox['target']['left_top']['elevation'] = (bbox['target']['left_top']['elevation'] + math.pi) / (2 * math.pi)
+                bbox['target']['right_bottom']['heading'] = bbox['target']['right_bottom']['heading'] / (2 * math.pi)
+                bbox['target']['right_bottom']['elevation'] = (bbox['target']['right_bottom']['elevation'] + math.pi) / (2 * math.pi)
+                bbox['target']['left_bottom']['heading'] = bbox['target']['left_bottom']['heading'] / (2 * math.pi)
+                bbox['target']['left_bottom']['elevation'] = (bbox['target']['left_bottom']['elevation'] + math.pi) / (2 * math.pi)
+                bbox['target']['right_top']['heading'] = bbox['target']['right_top']['heading'] / (2 * math.pi)
+                bbox['target']['right_top']['elevation'] = (bbox['target']['right_top']['elevation'] + math.pi) / (2 * math.pi)
             self.gt[item['instr_id']] = copy.deepcopy(item)
             # new_instrs = []
             # instructions = copy.deepcopy(item['instructions'])
@@ -76,9 +89,6 @@ class Evaluation(object):
         return near_id
     
     def _score_item(self, instr_id, path, heading=None, elevation=None, pre_bbox=None, pre_num_heading=None, pre_num_elevation=None):
-        ''' Calculate error based on the final position in trajectory, and also 
-            the closest position (oracle stopping rule).
-            The path contains [view_id, angle, vofv] '''
         heading = np.array(heading)
         elevation = np.array(elevation)
         gt = self.gt[instr_id]
@@ -97,21 +107,19 @@ class Evaluation(object):
         success = False
         for bbox in gt['bboxes']:
             if bbox['image_id'] == final_position:
-            # if True:
                 goal = final_position
-                # gt_heading = bbox['heading']
-                gt_heading = bbox['target']["center"]["heading"]
-                gt_elevation = bbox['target']["center"]["elevation"]
-                # gt_elevation = bbox['elevation']
+                gt_heading = bbox['heading']
+                gt_elevation = bbox['elevation']
                 gt_point = Point(gt_heading, gt_elevation)
-                # gt_point = Point(gt_heading, gt_elevation)
                 gt_poly = Polygon([(bbox['target']['left_top']['heading'], bbox['target']['left_top']['elevation']),
                                     (bbox['target']['right_top']['heading'], bbox['target']['right_top']['elevation']),
                                     (bbox['target']['right_bottom']['heading'], bbox['target']['right_bottom']['elevation']),
                                     (bbox['target']['left_bottom']['heading'], bbox['target']['left_bottom']['elevation'])])
+
                 self.scores['heading_errors'].append(math.fabs((gt_heading - heading)))
                 self.scores['elevation_errors'].append(math.fabs((gt_elevation - elevation)))
-                if gt_poly.contains(gt_point):
+                if gt_poly.contains(pre_point):
+                    # print(pre_point, gt_point)
                     # point_inds = (gt_poly.contains_points(pre_point) > 0).nonzero()[0]
                     # if point_inds.shape[0] > 0:
                     self.scores['det_success_num'].append(1.)
@@ -140,14 +148,32 @@ class Evaluation(object):
         )
 
     def score(self, results):
+        # ''' Evaluate each agent trajectory based on how close it got to the goal location '''
+        # self.scores = defaultdict(list)
+        # for item in results:
+        #     for trajectory in item['trajectory']:
+        #         self._score_item(item['instr_id'], trajectory['path'],
+        #                         trajectory['obj_heading'],
+        #                         trajectory['obj_elevation'])
+
+        # score_summary = {
+        #     'nav_error': np.average(self.scores['nav_errors']),
+        #     'oracle_error': np.average(self.scores['oracle_errors']),
+        #     'steps': np.average(self.scores['trajectory_steps']),
+        #     'lengths': np.average(self.scores['trajectory_lengths'])
+        # }
+        # score_summary['heading_errors'] = np.average(self.scores['heading_errors'])
+        # score_summary['elevation_errors'] = np.average(self.scores['elevation_errors'])
+        # score_summary['point_det_errors'] = np.average(self.scores['point_det_errors'])
+        # score_summary['goal_progress'] = np.average(self.scores['goal_progress'])
         ''' Evaluate each agent trajectory based on how close it got to the goal location '''
         self.scores = defaultdict(list)
+        instr_ids = set(self.instr_ids)
         for item in results:
             for trajectory in item['trajectory']:
                 self._score_item(item['instr_id'], trajectory['path'],
                                 trajectory['obj_heading'],
                                 trajectory['obj_elevation'])
-
         score_summary = {
             'nav_error': np.average(self.scores['nav_errors']),
             'oracle_error': np.average(self.scores['oracle_errors']),
@@ -161,21 +187,12 @@ class Evaluation(object):
 
         eps = 1e-9
         det_num_successes = len([i for i in self.scores['det_success_num'] if i > 0.])
-        if float(det_num_successes) < eps:
-            score_summary['det_success_rate'] = 0.0
-        else:
-            score_summary['det_success_rate'] = float(det_num_successes) / float(len(self.scores['det_success_num']))
+        score_summary['det_success_rate'] = float(det_num_successes) / float(len(self.scores['det_success_num'])+eps)
         num_successes = len([i for i in self.scores['nav_errors'] if i < self.error_margin])
-        if float(num_successes) < eps:
-            score_summary['nav_success_rate'] = 0.0
-        else:
-            score_summary['nav_success_rate'] = float(num_successes)/float(len(self.scores['nav_errors']))
+        score_summary['nav_success_rate'] = float(num_successes)/float(len(self.scores['nav_errors'])+eps)
 
         oracle_successes = len([i for i in self.scores['oracle_errors'] if i < self.error_margin])
-        if float(oracle_successes) < eps:
-            score_summary['oracle_rate'] = 0.0
-        else:
-            score_summary['oracle_rate'] = float(oracle_successes)/float(len(self.scores['oracle_errors']))
+        score_summary['oracle_rate'] = float(oracle_successes)/float(len(self.scores['oracle_errors'])+eps)
 
         spl = [float(error < self.error_margin) * l / max(l, p, 0.01)
             for error, p, l in
