@@ -116,13 +116,13 @@ challenge_phase_splits:
     leaderboard_id: 1
     dataset_split_id: 1
     visibility: 2
-    leaderboard_decimal_precision: 2
+    leaderboard_decimal_precision: 3
     is_leaderboard_order_descending: True
   - challenge_phase_id: 2
     leaderboard_id: 1
     dataset_split_id: 2
     visibility: 3
-    leaderboard_decimal_precision: 2
+    leaderboard_decimal_precision: 3
     is_leaderboard_order_descending: True
   # - challenge_phase_id: 3
   #   leaderboard_id: 1
